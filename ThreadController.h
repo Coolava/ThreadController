@@ -4,6 +4,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <functional>
+
 class ThreadController
 {
 public:

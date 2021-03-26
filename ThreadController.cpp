@@ -98,14 +98,16 @@ void ThreadController::monitor()
 {
 	while (destroyFlag.load(std::memory_order_acquire) == false)
 	{
+
 		if (isReady() == false)
 		{
 			break;
 		}
 
+		auto start = std::chrono::system_clock::now();
 		/*to do*/
 		worker_();
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(interval_));
+		std::this_thread::sleep_until(start + std::chrono::milliseconds(interval_));
 	}
 }
