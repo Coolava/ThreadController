@@ -8,17 +8,14 @@ ThreadController::ThreadController()
 
 ThreadController::~ThreadController()
 {
-	destroyFlag.store(true);
-	if (threadWorker_.joinable())
-	{
-		threadWorker_.join();
-	}
+	stop();
 }
 
 void ThreadController::start(std::function<void()> worker)
 {
 	if (threadWorker_.get_id() == std::thread::id())
 	{
+		destroyFlag.store(false);
 		readyStatus.store(true);
 		worker_ = worker;
 		threadWorker_ = std::thread(std::bind(&ThreadController::monitor, this));
@@ -26,6 +23,19 @@ void ThreadController::start(std::function<void()> worker)
 	else
 	{
 		/*restart*/
+	}
+}
+
+void ThreadController::stop()
+{
+	worker_ = std::function<void()>();
+	destroyFlag.store(true, std::memory_order_release);
+	readyStatus.store(false, std::memory_order_release);
+	readyCondition.notify_one();
+
+	if (threadWorker_.joinable())
+	{
+		threadWorker_.join();
 	}
 }
 
@@ -65,30 +75,26 @@ void ThreadController::setReady()
 bool ThreadController::isReady()
 {
 	bool ready = readyStatus.load(std::memory_order_acquire);
-	if (ready == true)
+
+	/*소멸자 호출 시 false*/
+	if (destroyFlag.load(std::memory_order_acquire) == true)
 	{
-		return true;
+		return false;
 	}
-	else
+	else if (ready == false)
 	{
-		/*소멸자 호출 시 false*/
-		if (destroyFlag.load(std::memory_order_acquire) == true)
-		{
-			return false;
-		}
-		else
-		{
-			/*ready false일 경우 wait상태로 들어간다.*/
-			waitReady();
-		}
+		/*ready false일 경우 wait상태로 들어간다.*/
+		waitReady();
+		isReady();
 	}
+
 	return true;
 }
 
 void ThreadController::waitReady()
 {
 	std::unique_lock<std::mutex> lock{ readyMutex };
-	readyCondition.wait(lock, [&] {
+	readyCondition.wait_for(lock, std::chrono::milliseconds(100), [&] {
 		return readyStatus.load(std::memory_order_acquire);
 		});
 
@@ -105,6 +111,7 @@ void ThreadController::monitor()
 		}
 
 		auto start = std::chrono::system_clock::now();
+
 		/*to do*/
 		worker_();
 

@@ -11,6 +11,7 @@ public:
 	ThreadController();
 	~ThreadController();
 	void start(std::function<void()> worker);
+	void stop();
 
 	/*Pause thread*/
 	void pause();
