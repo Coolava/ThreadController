@@ -85,7 +85,6 @@ bool ThreadController::isReady()
 	{
 		/*ready false일 경우 wait상태로 들어간다.*/
 		waitReady();
-		isReady();
 	}
 
 	return true;
