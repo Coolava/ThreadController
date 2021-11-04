@@ -5,6 +5,7 @@
 #include <condition_variable>
 #include <functional>
 #include <Windows.h>
+#include "SafeQueue.h"
 class ThreadController
 {
 public:
@@ -29,7 +30,8 @@ private:
 
 	/*Thread handle*/
 	std::thread threadWorker_;
-	std::atomic<bool> destroyFlag;
+	//std::atomic<bool> destroyFlag;
+	SafeQueue<bool> destroyQueue;
 
 
 	std::mutex readyMutex;

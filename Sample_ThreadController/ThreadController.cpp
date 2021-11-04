@@ -15,7 +15,7 @@ void ThreadController::start(std::function<void()> worker)
 {
 	if (threadWorker_.get_id() == std::thread::id())
 	{
-		destroyFlag.store(false);
+		destroyQueue.clear();
 		readyStatus.store(true);
 		worker_ = worker;
 		threadWorker_ = std::thread(std::bind(&ThreadController::monitor, this));
@@ -30,7 +30,7 @@ void ThreadController::start(std::function<void()> worker)
 void ThreadController::stop()
 {
 	worker_ = std::function<void()>();
-	destroyFlag.store(true);
+	destroyQueue.enqueue(true);
 	readyStatus.store(false);
 	readyCondition.notify_one();
 
@@ -43,7 +43,7 @@ void ThreadController::stop()
 void ThreadController::end()
 {
 	worker_ = std::function<void()>();
-	destroyFlag = true;
+	destroyQueue.enqueue(true);
 	readyStatus.store(false, std::memory_order_release);
 	readyCondition.notify_one();
 
@@ -62,12 +62,12 @@ void ThreadController::resume()
 
 bool ThreadController::isPaused()
 {
-	return (readyStatus == false) && (destroyFlag == false);
+	return (readyStatus == false) && (destroyQueue.size() == 0);
 }
 
 bool ThreadController::isWorking()
 {
-	return !destroyFlag;
+	return destroyQueue.size() != 0;
 }
 
 void ThreadController::setInterval(int milliseconds)
@@ -97,7 +97,7 @@ bool ThreadController::isReady()
 	bool ready = readyStatus.load(std::memory_order_acquire);
 
 	/*소멸자 호출 시 false*/
-	if (destroyFlag.load(std::memory_order_acquire) == true)
+	if (destroyQueue.size() > 0)
 	{
 		return false;
 	}
@@ -128,7 +128,7 @@ void ThreadController::monitor()
 {
 	//unsigned int count = 1;
 	//auto start = std::chrono::system_clock::now();
-	while (destroyFlag.load(std::memory_order_acquire) == false)
+	while (destroyQueue.size() == 0)
 	{
 		//count++;
 		if (isReady() == false)
